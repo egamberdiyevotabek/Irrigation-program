@@ -45,7 +45,6 @@ function pickSoilKey(hourly) {
   throw new Error("Soil moisture o‘zgaruvchisi topilmadi.");
 }
 
-// Decide which endpoint to use
 function endpointForDate(dStr) {
   const today = new Date();
   const d = new Date(dStr + "T00:00:00");
@@ -64,10 +63,6 @@ function initDateDefault() {
     const dd = String(today.getDate()).padStart(2, "0");
     el.value = `${yyyy}-${mm}-${dd}`;
   }
-}
-
-function fmt2(n) {
-  return Number.isFinite(n) ? n.toFixed(2) : "";
 }
 
 async function run() {
@@ -148,7 +143,7 @@ async function run() {
 
   const soilPctApi = h[soilKey].map(x => Number(x) * 100.0);
 
-  // Choose soil moisture source: manual or API
+  // Use manual soil moisture if provided; otherwise use API soil moisture
   const soilPctUsed = soilManual !== null
     ? Array(times.length).fill(soilManual)
     : soilPctApi;
@@ -184,57 +179,54 @@ async function run() {
     ]);
   }
 
-  // Daily summary (ET totals from hourly)
+  // Daily ET totals from hourly
   const et0Day = et0.reduce((a, b) => a + b, 0);
   const etcDay = etc.reduce((a, b) => a + b, 0);
 
-  // Decide "should water right now" based on chosen time:
-  // If time empty -> use first available hour (typically 00:00 local for that date).
-  const targetTime = t ? `${d}T${t}` : times[0];
-
-  // Find the index for the selected time (or closest next hour)
-  let idxNow = times.findIndex(x => x === targetTime);
-  if (idxNow === -1) {
-    // pick first hour >= targetTime (lexicographic works for ISO local)
-    idxNow = times.findIndex(x => x >= targetTime);
-    if (idxNow === -1) idxNow = times.length - 1; // fallback to last
-  }
-
-  const soilNow = soilPctUsed[idxNow];
-
-  // WATER NOW decision:
-  // If soil moisture <= RAW, water now.
-  const waterNow = soilNow <= raw;
-
-  // Find first watering time in the day (soil <= RAW)
-  let waterIdx = -1;
+  // Find first time in the day when soil <= RAW
+  let firstRawIdx = -1;
   for (let i = 0; i < times.length; i++) {
-    if (soilPctUsed[i] <= raw) { waterIdx = i; break; }
+    if (soilPctUsed[i] <= raw) { firstRawIdx = i; break; }
   }
 
-  let decisionLine = waterNow
-    ? "✅ <b>SUG‘ORISH HOZIR KERAK</b> (namlik RAW dan past yoki teng)"
-    : "⏳ <b>HOZIRCHA SUG‘ORISH SHART EMAS</b> (namlik RAW dan yuqori)";
+  // If user provided a time, compute watering decision at that time.
+  // If user did NOT provide time, DO NOT show that specific “should I water at that time” answer.
+  let timeDecisionHtml = "";
+  if (t) {
+    const target = `${d}T${t}`;
 
-  let timeLine = `🕒 Tekshiruv vaqti: <b>${times[idxNow]}</b>`;
+    // Use closest next hour if exact match missing
+    let idxAtTime = times.findIndex(ts => ts >= target);
+    if (idxAtTime === -1) idxAtTime = times.length - 1;
 
-  let whenLine = "⏳ Bugun RAW ga tushmadi (model bo‘yicha).";
-  if (waterIdx >= 0) {
-    whenLine = `✅ RAW ga birinchi tushish vaqti: <b>${times[waterIdx]}</b> (Soil: ${soilPctUsed[waterIdx].toFixed(1)}%)`;
+    const soilAtTime = soilPctUsed[idxAtTime];
+    const shouldWaterAtTime = soilAtTime <= raw;
+
+    const decisionLine = shouldWaterAtTime
+      ? "✅ <b>BU VAQTDA SUG‘ORISH KERAK</b> (namlik RAWdan past yoki teng)"
+      : "⏳ <b>BU VAQTDA SUG‘ORISH SHART EMAS</b> (namlik RAWdan yuqori)";
+
+    timeDecisionHtml = `
+      <hr style="border:0;border-top:1px solid #243047;margin:10px 0;">
+      <div>${decisionLine}</div>
+      <div>🕒 Tanlangan vaqt: <b>${times[idxAtTime]}</b></div>
+      <div>🌱 Namlik: <b>${soilAtTime.toFixed(1)}%</b> | RAW: <b>${raw.toFixed(1)}%</b></div>
+    `;
   }
+
+  const rawWhenMsg = firstRawIdx >= 0
+    ? `✅ RAW ga birinchi tushish vaqti: <b>${times[firstRawIdx]}</b> (Soil: ${soilPctUsed[firstRawIdx].toFixed(1)}%)`
+    : "⏳ Bu kunda soil moisture RAW ga tushmadi (model bo‘yicha).";
 
   setStatus("");
   setSummary(`
     <div><b>Joylashuv:</b> lat=${lat.toFixed(6)}, lon=${lon.toFixed(6)}, alt=${alt.toFixed(1)} m</div>
     <div><b>Sana:</b> ${d} | <b>Soil manbasi:</b> ${soilSourceLabel}</div>
     <hr style="border:0;border-top:1px solid #243047;margin:10px 0;">
-    <div>${decisionLine}</div>
-    <div>${timeLine}</div>
-    <div>🌱 Namlik: <b>${soilNow.toFixed(1)}%</b> | RAW: <b>${raw.toFixed(1)}%</b></div>
-    <hr style="border:0;border-top:1px solid #243047;margin:10px 0;">
     <div><b>Kunlik ET0:</b> ${et0Day.toFixed(2)} mm/kun (${mmToM3PerHa(et0Day).toFixed(1)} m³/ga)</div>
     <div><b>Kunlik ETc (Kc=${kc.toFixed(2)}):</b> ${etcDay.toFixed(2)} mm/kun (${mmToM3PerHa(etcDay).toFixed(1)} m³/ga)</div>
-    <div style="margin-top:10px;">${whenLine}</div>
+    <div style="margin-top:10px;">${rawWhenMsg}</div>
+    ${timeDecisionHtml}
   `);
 }
 
