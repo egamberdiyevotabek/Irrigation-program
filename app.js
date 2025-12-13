@@ -50,10 +50,24 @@ function endpointForDate(dStr) {
   const today = new Date();
   const d = new Date(dStr + "T00:00:00");
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  // past => archive, else forecast
   return d < t0
     ? "https://archive-api.open-meteo.com/v1/archive"
     : "https://api.open-meteo.com/v1/forecast";
+}
+
+function initDateDefault() {
+  const el = document.getElementById("date");
+  if (!el.value) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    el.value = `${yyyy}-${mm}-${dd}`;
+  }
+}
+
+function fmt2(n) {
+  return Number.isFinite(n) ? n.toFixed(2) : "";
 }
 
 async function run() {
@@ -63,9 +77,15 @@ async function run() {
   const lat = parseFloat(document.getElementById("lat").value);
   const lon = parseFloat(document.getElementById("lon").value);
   const alt = parseFloat(document.getElementById("alt").value);
+
   const d = document.getElementById("date").value; // YYYY-MM-DD
+  const t = (document.getElementById("time")?.value || "").trim(); // HH:MM optional
+
   const kc = parseFloat(document.getElementById("kc").value);
   const raw = clamp(parseFloat(document.getElementById("raw").value), 0, 100);
+
+  const soilManualStr = (document.getElementById("soilManual")?.value || "").trim();
+  const soilManual = soilManualStr === "" ? null : clamp(parseFloat(soilManualStr), 0, 100);
 
   if (!d) {
     setStatus("");
@@ -74,8 +94,6 @@ async function run() {
   }
 
   const base = endpointForDate(d);
-
-  // Soil moisture depth names differ for archive vs forecast.
   const isArchive = base.includes("archive-api");
   const soilVar = isArchive ? "soil_moisture_7_to_28cm" : "soil_moisture_9_to_27cm";
 
@@ -122,11 +140,22 @@ async function run() {
   }
 
   const soilKey = pickSoilKey(h);
-  const times = h.time;
+  const times = h.time; // local ISO strings
+
   const et0 = h.et0_fao_evapotranspiration.map(Number); // mm/h
   const etc = et0.map(x => x * kc);                     // mm/h
   const rain = (h.precipitation || Array(et0.length).fill(0)).map(Number);
-  const soilPct = h[soilKey].map(x => Number(x) * 100.0);
+
+  const soilPctApi = h[soilKey].map(x => Number(x) * 100.0);
+
+  // Choose soil moisture source: manual or API
+  const soilPctUsed = soilManual !== null
+    ? Array(times.length).fill(soilManual)
+    : soilPctApi;
+
+  const soilSourceLabel = soilManual !== null
+    ? `Manual (${soilManual.toFixed(1)}%)`
+    : `${soilKey} (API model)`;
 
   // Hourly table (first 24)
   const tbH = document.querySelector("#hourlyTable tbody");
@@ -134,23 +163,13 @@ async function run() {
   for (let i = 0; i < n; i++) {
     addRow(tbH, [
       times[i],
-      soilPct[i].toFixed(1),
+      soilPctUsed[i].toFixed(1),
       et0[i].toFixed(3),
       etc[i].toFixed(3),
       mmToM3PerHa(et0[i]).toFixed(2),
       mmToM3PerHa(etc[i]).toFixed(2),
       rain[i].toFixed(2),
     ]);
-  }
-
-  // Daily summary (ET totals from hourly)
-  const et0Day = et0.reduce((a,b)=>a+b, 0);
-  const etcDay = etc.reduce((a,b)=>a+b, 0);
-
-  // Find first watering time based on soilPct <= RAW
-  let waterIdx = -1;
-  for (let i = 0; i < times.length; i++) {
-    if (soilPct[i] <= raw) { waterIdx = i; break; }
   }
 
   // Daily table from API (if present)
@@ -165,33 +184,58 @@ async function run() {
     ]);
   }
 
-  // Summary box
-  let waterMsg = "⏳ Bu kunda soil moisture RAW ga tushmadi (model bo‘yicha).";
+  // Daily summary (ET totals from hourly)
+  const et0Day = et0.reduce((a, b) => a + b, 0);
+  const etcDay = etc.reduce((a, b) => a + b, 0);
+
+  // Decide "should water right now" based on chosen time:
+  // If time empty -> use first available hour (typically 00:00 local for that date).
+  const targetTime = t ? `${d}T${t}` : times[0];
+
+  // Find the index for the selected time (or closest next hour)
+  let idxNow = times.findIndex(x => x === targetTime);
+  if (idxNow === -1) {
+    // pick first hour >= targetTime (lexicographic works for ISO local)
+    idxNow = times.findIndex(x => x >= targetTime);
+    if (idxNow === -1) idxNow = times.length - 1; // fallback to last
+  }
+
+  const soilNow = soilPctUsed[idxNow];
+
+  // WATER NOW decision:
+  // If soil moisture <= RAW, water now.
+  const waterNow = soilNow <= raw;
+
+  // Find first watering time in the day (soil <= RAW)
+  let waterIdx = -1;
+  for (let i = 0; i < times.length; i++) {
+    if (soilPctUsed[i] <= raw) { waterIdx = i; break; }
+  }
+
+  let decisionLine = waterNow
+    ? "✅ <b>SUG‘ORISH HOZIR KERAK</b> (namlik RAW dan past yoki teng)"
+    : "⏳ <b>HOZIRCHA SUG‘ORISH SHART EMAS</b> (namlik RAW dan yuqori)";
+
+  let timeLine = `🕒 Tekshiruv vaqti: <b>${times[idxNow]}</b>`;
+
+  let whenLine = "⏳ Bugun RAW ga tushmadi (model bo‘yicha).";
   if (waterIdx >= 0) {
-    waterMsg = `✅ Sug‘orish tavsiya qilinadigan birinchi vaqt: <b>${times[waterIdx]}</b>
-      (Soil: ${soilPct[waterIdx].toFixed(1)}%, RAW: ${raw.toFixed(1)}%)`;
+    whenLine = `✅ RAW ga birinchi tushish vaqti: <b>${times[waterIdx]}</b> (Soil: ${soilPctUsed[waterIdx].toFixed(1)}%)`;
   }
 
   setStatus("");
   setSummary(`
     <div><b>Joylashuv:</b> lat=${lat.toFixed(6)}, lon=${lon.toFixed(6)}, alt=${alt.toFixed(1)} m</div>
-    <div><b>Sana:</b> ${d} | <b>Soil moisture:</b> ${soilKey} (model)</div>
+    <div><b>Sana:</b> ${d} | <b>Soil manbasi:</b> ${soilSourceLabel}</div>
+    <hr style="border:0;border-top:1px solid #243047;margin:10px 0;">
+    <div>${decisionLine}</div>
+    <div>${timeLine}</div>
+    <div>🌱 Namlik: <b>${soilNow.toFixed(1)}%</b> | RAW: <b>${raw.toFixed(1)}%</b></div>
     <hr style="border:0;border-top:1px solid #243047;margin:10px 0;">
     <div><b>Kunlik ET0:</b> ${et0Day.toFixed(2)} mm/kun (${mmToM3PerHa(et0Day).toFixed(1)} m³/ga)</div>
     <div><b>Kunlik ETc (Kc=${kc.toFixed(2)}):</b> ${etcDay.toFixed(2)} mm/kun (${mmToM3PerHa(etcDay).toFixed(1)} m³/ga)</div>
-    <div style="margin-top:10px;">${waterMsg}</div>
+    <div style="margin-top:10px;">${whenLine}</div>
   `);
-}
-
-function initDateDefault() {
-  const el = document.getElementById("date");
-  if (!el.value) {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,"0");
-    const dd = String(today.getDate()).padStart(2,"0");
-    el.value = `${yyyy}-${mm}-${dd}`;
-  }
 }
 
 document.getElementById("run").addEventListener("click", run);
