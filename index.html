@@ -66,11 +66,63 @@
       <details class="note">
         <summary>Eslatma</summary>
         <ul>
-          <li>Soil moisture Open-Meteo’dan olinadi (model), yoki qo‘lda kiritiladi.</li>
-          <li>1 mm = 10 m³/ga.</li>
-          <li>Kunlik ET0/ETc: soatlik yig‘indidan hisoblanadi.</li>
-          <li><b>“Vaqt”</b> kiritilsa, o‘sha vaqtda sug‘orish kerak/kerak emas degan javob chiqadi. Kiritilmasa, bu javob ko‘rsatilmaydi.</li>
+          <li>
+            <b>ET₀ (Referens evapotranspiratsiya):</b>
+            Standart sharoitdagi (o‘tsimon ekin) bug‘lanish va transpiratsiya miqdori.
+            Open-Meteo FAO-56 modeli asosida hisoblanadi.
+          </li>
+
+          <li>
+            <b>ETc (Ekin evapotranspiratsiyasi):</b>
+            Aniq ekin uchun suv sarfi.
+            ETc = Kc × ET₀ formulasi orqali hisoblanadi.
+          </li>
+
+          <li>
+            <b>Kc (Ekin koeffitsiyenti):</b>
+            Ekin turiga va rivojlanish bosqichiga bog‘liq koeffitsiyent.
+            ET₀ ni real ekin suv sarfiga moslashtiradi.
+          </li>
+
+          <li>
+            <b>RAW (%):</b>
+            Ruxsat etilgan maksimal qurish darajasi.
+            Tuproq namligi ushbu foizdan pastga tushsa, sug‘orish tavsiya etiladi.
+          </li>
+
+          <li>
+            <b>TAW (Total Available Water):</b>
+            Tuproq ildiz zonasida o‘simlik foydalanishi mumkin bo‘lgan umumiy suv miqdori.
+            Ushbu dasturda TAW foiz ko‘rinishida baholanadi.
+          </li>
+
+          <li>
+            <b>Tuproq namligi (%):</b>
+            Tuproqdagi suv miqdori foizlarda.
+            Agar qo‘lda kiritilmasa, Open-Meteo model ma’lumotlari ishlatiladi.
+          </li>
+
+          <li>
+            <b>Vaqt (HH:MM):</b>
+            Agar vaqt kiritilsa, dastur aynan shu vaqtda sug‘orish kerak yoki
+            kerak emasligini ko‘rsatadi.
+            Agar vaqt kiritilmasa, bu qaror chiqarilmaydi.
+          </li>
+
+          <li>
+            <b>Dastur qanday ishlaydi:</b>
+            Tanlangan joy va sana bo‘yicha Open-Meteo’dan soatlik ob-havo va tuproq
+            ma’lumotlari olinadi, ET₀ va ETc hisoblanadi, tuproq namligi RAW bilan
+            solishtiriladi va sug‘orish bo‘yicha tavsiya beriladi.
+          </li>
+
+          <li>
+            <b>Eslatma:</b>
+            Ushbu dastur qaror qabul qilishni qo‘llab-quvvatlash uchun mo‘ljallangan.
+            Tuproq sensorlari mavjud bo‘lsa, natijalar yanada aniq bo‘ladi.
+          </li>
         </ul>
+
       </details>
     </section>
 
