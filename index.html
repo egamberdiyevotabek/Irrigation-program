@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sug‘orish kalkulyatori (Open-Meteo)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>Sug‘orish kalkulyatori</h1>
+    <p class="sub">
+      Open-Meteo ma’lumotlari asosida ET0/ETc va RAW bo‘yicha sug‘orish vaqti.
+      Sensor emas, model. Ha, farqi bor.
+    </p>
+
+    <section class="card">
+      <h2>Kiritish</h2>
+
+      <div class="grid">
+        <label>
+          Latitude
+          <input id="lat" type="number" step="0.000001" value="38.9766" />
+        </label>
+
+        <label>
+          Longitude
+          <input id="lon" type="number" step="0.000001" value="66.6887" />
+        </label>
+
+        <label>
+          Altitude (m)
+          <input id="alt" type="number" step="1" value="350" />
+        </label>
+
+        <label>
+          Sana (YYYY-MM-DD)
+          <input id="date" type="date" />
+        </label>
+
+        <label>
+          Kc
+          <input id="kc" type="number" step="0.01" value="0.90" />
+        </label>
+
+        <label>
+          RAW chegarasi (%)
+          <input id="raw" type="number" step="0.1" value="25" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="run">Hisoblash</button>
+        <span id="status" class="status"></span>
+      </div>
+
+      <details class="note">
+        <summary>Eslatma</summary>
+        <ul>
+          <li>Soil moisture Open-Meteo’dan olinadi (model).</li>
+          <li>1 mm = 10 m³/ga.</li>
+          <li>Kunlik ET0/ETc: soatlik yig‘indidan hisoblanadi.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Natijalar</h2>
+
+      <div id="summary" class="summary muted">Hisoblash uchun parametrlarni kiriting.</div>
+
+      <div class="tables">
+        <h3>Hourly (birinchi 24 soat)</h3>
+        <div class="tablewrap">
+          <table id="hourlyTable">
+            <thead>
+              <tr>
+                <th>Vaqt</th>
+                <th>Soil %</th>
+                <th>ET0 (mm/h)</th>
+                <th>ETc (mm/h)</th>
+                <th>ET0 (m³/ga·h)</th>
+                <th>ETc (m³/ga·h)</th>
+                <th>Yomg‘ir (mm)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h3>Daily (API’dan)</h3>
+        <div class="tablewrap">
+          <table id="dailyTable">
+            <thead>
+              <tr>
+                <th>Sana</th>
+                <th>Yog‘in (mm/kun)</th>
+                <th>Tmax (°C)</th>
+                <th>Tmin (°C)</th>
+                <th>Shortwave sum</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>Made with mild irritation.</span>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
