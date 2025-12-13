@@ -44,11 +44,6 @@
         </label>
 
         <label>
-          Tuproq namligi (%) ixtiyoriy
-          <input id="soilManual" type="number" step="0.1" placeholder="Bo‘sh qoldirsangiz API oladi" />
-        </label>
-
-        <label>
           Kc
           <input id="kc" type="number" step="0.01" value="0.90" />
         </label>
@@ -56,6 +51,11 @@
         <label>
           RAW chegarasi (%)
           <input id="raw" type="number" step="0.1" value="25" />
+        </label>
+
+        <label>
+          Tuproq namligi (%) ixtiyoriy
+          <input id="soilManual" type="number" step="0.1" placeholder="Bo‘sh qoldirsangiz API oladi" />
         </label>
       </div>
 
@@ -67,9 +67,10 @@
       <details class="note">
         <summary>Eslatma</summary>
         <ul>
-          <li>Soil moisture Open-Meteo’dan olinadi (model).</li>
+          <li>Soil moisture Open-Meteo’dan olinadi (model), yoki qo‘lda kiritiladi.</li>
           <li>1 mm = 10 m³/ga.</li>
           <li>Kunlik ET0/ETc: soatlik yig‘indidan hisoblanadi.</li>
+          <li><b>“Vaqt”</b> kiritilsa, o‘sha vaqtda sug‘orish kerak/kerak emas degan javob chiqadi. Kiritilmasa, bu javob ko‘rsatilmaydi.</li>
         </ul>
       </details>
     </section>
