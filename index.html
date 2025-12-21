@@ -3,168 +3,363 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Irrigation program (Open-Meteo)</title>
+  <title>Sug‘orish kalkulyatori (API vs Manual)</title>
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Beautiful client-side PDF: html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+          integrity="sha512-YcsIPGdhPK4P3G6v7lFjQ4pK3uY9WQFJ0uX9wqYh7G+0RkqkT+XJ3Y6nGkq6S6TgJQm6nq9m1mYJ9f6LkZ2fYw=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <main class="wrap">
-    <h1>Irrigation program</h1>
-    <p class="sub">
-      Open-Meteo ma’lumotlari asosida ET0/ETc va RAW bo‘yicha sug‘orish vaqti
-    </p>
+    <header class="top">
+      <div>
+        <h1>Sug‘orish kalkulyatori</h1>
+        <p class="sub">
+          Open-Meteo (API) natijalari va FAO-56 Penman–Monteith bo‘yicha manual hisob-kitoblarni
+          taqqoslash uchun decision-support vosita.
+        </p>
+      </div>
 
-    <section class="card">
-      <h2>Kiritish</h2>
+      <div class="topActions">
+        <button id="locate" class="btn ghost">Joylashuvni aniqlash</button>
+        <button id="downloadPdf" class="btn">PDF yuklab olish</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="api">API rejim</button>
+      <button class="tab" data-tab="manual">Manual rejim</button>
+      <button class="tab" data-tab="report">Hisobot</button>
+      <span id="status" class="status"></span>
+    </nav>
+
+    <!-- API TAB -->
+    <section id="tab-api" class="card tabPanel active">
+      <h2>API rejim (Open-Meteo)</h2>
 
       <div class="grid">
         <label>
           Latitude
-          <input id="lat" type="number" step="0.000001" value="0" />
+          <input id="api_lat" type="number" step="0.000001" value="38.9766" />
         </label>
 
         <label>
           Longitude
-          <input id="lon" type="number" step="0.000001" value="0" />
+          <input id="api_lon" type="number" step="0.000001" value="66.6887" />
         </label>
 
         <label>
           Altitude (m)
-          <input id="alt" type="number" step="1" value="0" />
+          <input id="api_alt" type="number" step="1" value="350" />
         </label>
 
         <label>
-          Sana (DD-MM-YYYY)
-          <input id="date" type="date" />
+          Sana (YYYY-MM-DD)
+          <input id="api_date" type="date" />
         </label>
 
         <label>
           Vaqt (HH:MM) ixtiyoriy
-          <input id="time" type="time" />
+          <input id="api_time" type="time" />
         </label>
 
         <label>
           Kc
-          <input id="kc" type="number" step="0.01" value="0" />
+          <input id="api_kc" type="number" step="0.01" value="0.90" />
         </label>
 
         <label>
           RAW chegarasi (%)
-          <input id="raw" type="number" step="0.1" value="0" />
+          <input id="api_raw" type="number" step="0.1" value="25" />
         </label>
 
         <label>
-          Tuproq namligi (%) ixtiyoriy
-          <input id="soilManual" type="number" step="0.1" placeholder="Bo‘sh qoldirsangiz API oladi" />
+          Tuproq namligi (%) ixtiyoriy (manual)
+          <input id="api_soilManual" type="number" step="0.1" placeholder="Bo‘sh qoldirsangiz API oladi" />
         </label>
       </div>
 
       <div class="row">
-        <button id="run">Hisoblash</button>
-        <span id="status" class="status"></span>
+        <button id="runApi" class="btn">API hisoblash</button>
       </div>
 
       <details class="note">
         <summary>Eslatma</summary>
         <ul>
-          <li>
-            <b>ET₀ (Referens evapotranspiratsiya):</b>
-            Standart sharoitdagi (o‘tsimon ekin) bug‘lanish va transpiratsiya miqdori.
-            Open-Meteo FAO-56 modeli asosida hisoblanadi.
-          </li>
-
-          <li>
-            <b>ETc (Ekin evapotranspiratsiyasi):</b>
-            Aniq ekin uchun suv sarfi.
-            ETc = Kc × ET₀ formulasi orqali hisoblanadi.
-          </li>
-
-          <li>
-            <b>Kc (Ekin koeffitsiyenti):</b>
-            Ekin turiga va rivojlanish bosqichiga bog‘liq koeffitsiyent.
-            ET₀ ni real ekin suv sarfiga moslashtiradi.
-          </li>
-
-          <li>
-            <b>RAW (%):</b>
-            Ruxsat etilgan maksimal qurish darajasi.
-            Tuproq namligi ushbu foizdan pastga tushsa, sug‘orish tavsiya etiladi.
-          </li>
-
-          <li>
-            <b>TAW (Total Available Water):</b>
-            Tuproq ildiz zonasida o‘simlik foydalanishi mumkin bo‘lgan umumiy suv miqdori.
-            Ushbu dasturda TAW foiz ko‘rinishida baholanadi.
-          </li>
-
-          <li>
-            <b>Tuproq namligi (%):</b>
-            Tuproqdagi suv miqdori foizlarda.
-            Agar qo‘lda kiritilmasa, Open-Meteo model ma’lumotlari ishlatiladi.
-          </li>
-
-          <li>
-            <b>Vaqt (HH:MM):</b>
-            Agar vaqt kiritilsa, dastur aynan shu vaqtda sug‘orish kerak yoki
-            kerak emasligini ko‘rsatadi.
-            Agar vaqt kiritilmasa, bu qaror chiqarilmaydi.
-          </li>
-
-          <li>
-            <b>Dastur qanday ishlaydi:</b>
-            Tanlangan joy va sana bo‘yicha Open-Meteo’dan soatlik ob-havo va tuproq
-            ma’lumotlari olinadi, ET₀ va ETc hisoblanadi, tuproq namligi RAW bilan
-            solishtiriladi va sug‘orish bo‘yicha tavsiya beriladi.
-          </li>
+          <li><b>ET₀:</b> referens evapotranspiratsiya (FAO-56). Open-Meteo ET₀ ni tayyor beradi.</li>
+          <li><b>ETc:</b> ekin evapotranspiratsiyasi. ETc = Kc × ET₀.</li>
+          <li><b>Kc:</b> ekin koeffitsiyenti (ekin turi/bosqichiga bog‘liq).</li>
+          <li><b>RAW (%):</b> sug‘orish chegarasi. Tuproq namligi RAW dan past bo‘lsa sug‘orish tavsiya etiladi.</li>
+          <li><b>TAW:</b> ildiz zonasida o‘simlik foydalanishi mumkin bo‘lgan umumiy suv zaxirasi (bu sahifada foiz bilan ishlaymiz).</li>
+          <li><b>Vaqt (HH:MM):</b> kiritilsa, o‘sha vaqtda sug‘orish kerak/kerak emas qarori chiqadi. Kiritilmasa, qaror ko‘rsatilmaydi.</li>
+          <li><b>Dastur:</b> Open-Meteo’dan soatlik/kundalik ma’lumotlarni oladi, ET₀/ETc ni hisoblab, RAW bilan solishtiradi.</li>
         </ul>
-
       </details>
-    </section>
 
-    <section class="card">
-      <h2>Natijalar</h2>
-
-      <div id="summary" class="summary muted">Hisoblash uchun parametrlarni kiriting.</div>
-
-      <div class="tables">
-        <h3>Hourly (birinchi 24 soat)</h3>
-        <div class="tablewrap">
-          <table id="hourlyTable">
-            <thead>
-              <tr>
-                <th>Vaqt</th>
-                <th>Soil %</th>
-                <th>ET0 (mm/h)</th>
-                <th>ETc (mm/h)</th>
-                <th>ET0 (m³/ga·h)</th>
-                <th>ETc (m³/ga·h)</th>
-                <th>Yomg‘ir (mm)</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+      <div class="twoCol">
+        <div>
+          <h3>Natija (API)</h3>
+          <div id="api_summary" class="summary muted">Hisoblash uchun parametrlarni kiriting.</div>
         </div>
 
-        <h3>Daily (API’dan)</h3>
+        <div>
+          <h3>Hourly (birinchi 24 soat)</h3>
+          <div class="tablewrap">
+            <table id="api_hourlyTable">
+              <thead>
+                <tr>
+                  <th>Vaqt</th>
+                  <th>Soil %</th>
+                  <th>ET0 (mm/h)</th>
+                  <th>ETc (mm/h)</th>
+                  <th>ET0 (m³/ga·h)</th>
+                  <th>ETc (m³/ga·h)</th>
+                  <th>Yomg‘ir (mm)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <h3>Daily (API’dan)</h3>
+          <div class="tablewrap">
+            <table id="api_dailyTable">
+              <thead>
+                <tr>
+                  <th>Sana</th>
+                  <th>Yog‘in (mm/kun)</th>
+                  <th>Tmax (°C)</th>
+                  <th>Tmin (°C)</th>
+                  <th>Shortwave sum</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MANUAL TAB -->
+    <section id="tab-manual" class="card tabPanel">
+      <h2>Manual rejim (FAO-56 Penman–Monteith)</h2>
+
+      <div class="row between">
+        <div class="seg">
+          <button id="modeSnapshot" class="segBtn active">Single snapshot</button>
+          <button id="modeSeries" class="segBtn">Hourly series</button>
+        </div>
+
+        <div class="hint">
+          Snapshot: bitta vaqt nuqtasi. Series: soatlik ketma-ket qiymatlar (jadval/CSV).
+        </div>
+      </div>
+
+      <div class="grid">
+        <label>
+          Latitude
+          <input id="m_lat" type="number" step="0.000001" value="38.9766" />
+        </label>
+
+        <label>
+          Longitude
+          <input id="m_lon" type="number" step="0.000001" value="66.6887" />
+        </label>
+
+        <label>
+          Altitude (m)
+          <input id="m_alt" type="number" step="1" value="350" />
+        </label>
+
+        <label>
+          Sana (YYYY-MM-DD)
+          <input id="m_date" type="date" />
+        </label>
+
+        <label>
+          Vaqt (HH:MM)
+          <input id="m_time" type="time" value="12:00" />
+        </label>
+
+        <label>
+          Kc
+          <input id="m_kc" type="number" step="0.01" value="0.90" />
+        </label>
+
+        <label>
+          RAW (%)
+          <input id="m_raw" type="number" step="0.1" value="25" />
+        </label>
+
+        <label>
+          Tuproq namligi (%) (manual)
+          <input id="m_soil" type="number" step="0.1" value="35" />
+        </label>
+      </div>
+
+      <!-- Snapshot inputs -->
+      <div id="snapshotBox" class="card inner">
+        <h3>Single snapshot kiritish</h3>
+        <div class="grid">
+          <label>Harorat T (°C) <input id="s_T" type="number" step="0.1" value="25" /></label>
+          <label>Nisbiy namlik RH (%) <input id="s_RH" type="number" step="0.1" value="40" /></label>
+          <label>Shamol u10 (m/s) <input id="s_u10" type="number" step="0.1" value="2.0" /></label>
+          <label>Bosim P (hPa) <input id="s_P" type="number" step="0.1" value="1013.0" /></label>
+          <label>Qisqa to‘lqinli radiatsiya Rs (W/m²) <input id="s_Rs" type="number" step="1" value="400" /></label>
+          <label>Bulut cover (%) <input id="s_cloud" type="number" step="1" value="20" /></label>
+        </div>
+        <div class="row">
+          <button id="runManualSnapshot" class="btn">Manual snapshot hisoblash</button>
+        </div>
+        <p class="micro">
+          Izoh: Rs (W/m²) soatlik o‘rtacha sifatida qabul qilinadi. Rnl (longwave) FAO-56 usulida Rs/Rso orqali baholanadi.
+        </p>
+      </div>
+
+      <!-- Series inputs -->
+      <div id="seriesBox" class="card inner hidden">
+        <h3>Hourly series kiritish</h3>
+
+        <div class="row between">
+          <div class="micro">
+            Jadvalga soatlik qiymatlarni kiriting yoki CSV paste qiling.
+            Minimal ustunlar: <b>time,T,RH,u10,P,Rs,cloud</b>.
+            Ixtiyoriy: <b>soil</b> (soil moisture %, agar har soat o‘zgarishini kiritmoqchi bo‘lsangiz).
+          </div>
+          <button id="add24" class="btn ghost">24 soat yaratish</button>
+        </div>
+
+        <div class="row">
+          <textarea id="csvPaste" class="textarea" placeholder="CSV paste (optional)
+time,T,RH,u10,P,Rs,cloud,soil
+2025-12-13T00:00,24,45,1.8,1012,0,80,35
+..."></textarea>
+        </div>
+
+        <div class="row">
+          <button id="loadCsv" class="btn ghost">CSV dan yuklash</button>
+          <button id="runManualSeries" class="btn">Manual series hisoblash</button>
+        </div>
+
         <div class="tablewrap">
-          <table id="dailyTable">
+          <table id="seriesTable">
             <thead>
               <tr>
-                <th>Sana</th>
-                <th>Yog‘in (mm/kun)</th>
-                <th>Tmax (°C)</th>
-                <th>Tmin (°C)</th>
-                <th>Shortwave sum</th>
+                <th>time</th>
+                <th>T (°C)</th>
+                <th>RH (%)</th>
+                <th>u10 (m/s)</th>
+                <th>P (hPa)</th>
+                <th>Rs (W/m²)</th>
+                <th>cloud (%)</th>
+                <th>soil % (opt)</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
       </div>
+
+      <div class="twoCol">
+        <div>
+          <h3>Natija (Manual)</h3>
+          <div id="m_summary" class="summary muted">Manual hisoblashni bajaring.</div>
+        </div>
+
+        <div>
+          <h3>Manual hourly (birinchi 24 soat)</h3>
+          <div class="tablewrap">
+            <table id="m_hourlyTable">
+              <thead>
+                <tr>
+                  <th>Vaqt</th>
+                  <th>Soil %</th>
+                  <th>ET0 (mm/h)</th>
+                  <th>ETc (mm/h)</th>
+                  <th>ET0 (m³/ga·h)</th>
+                  <th>ETc (m³/ga·h)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="micro">Manual rejimda yomg‘ir/soil modeli avtomatik emas. Soil % snapshot qiymati yoki series jadvalidagi “soil %” (agar kiritilgan bo‘lsa) ishlatiladi.</p>
+        </div>
+      </div>
     </section>
 
-    <footer class="foot">
-      <span></span>
-    </footer>
+    <!-- REPORT TAB -->
+    <section id="tab-report" class="card tabPanel">
+      <h2>Hisobot (API vs Manual)</h2>
+      <p class="micro">
+        PDF hisobot shu bo‘limdagi ma’lumotlardan shakllantiriladi.
+        Avval API va Manual hisoblashlarini bajaring.
+      </p>
+
+      <div class="row">
+        <button id="buildReport" class="btn ghost">Hisobotni yangilash</button>
+      </div>
+
+      <div id="reportPreview" class="summary muted">
+        Hisobotni ko‘rish uchun “Hisobotni yangilash” tugmasini bosing.
+      </div>
+    </section>
+
+    <!-- Hidden printable/report area (used for PDF generation) -->
+    <section id="reportPdf" class="reportPage hidden">
+      <div class="reportHeader">
+        <div>
+          <div class="reportTitle">Sug‘orish Hisoboti</div>
+          <div class="reportSub">API (Open-Meteo) vs Manual (FAO-56 Penman–Monteith)</div>
+        </div>
+        <div class="reportMeta" id="reportMeta"></div>
+      </div>
+
+      <div class="reportGrid">
+        <div class="reportCard">
+          <h3>API rejim natijalari</h3>
+          <div id="reportApiBlock" class="reportBlock"></div>
+        </div>
+
+        <div class="reportCard">
+          <h3>Manual rejim natijalari</h3>
+          <div id="reportManualBlock" class="reportBlock"></div>
+        </div>
+      </div>
+
+      <div class="reportCard">
+        <h3>Taqqoslash</h3>
+        <div id="reportCompareBlock" class="reportBlock"></div>
+      </div>
+
+      <div class="reportCard">
+        <h3>Soatlik ko‘rsatkichlar (qisqa jadval)</h3>
+        <div class="reportTables">
+          <div>
+            <h4>API (birinchi 12 soat)</h4>
+            <table id="reportApiTable" class="reportTable">
+              <thead><tr><th>Time</th><th>Soil%</th><th>ET0</th><th>ETc</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div>
+            <h4>Manual (birinchi 12 soat)</h4>
+            <table id="reportManualTable" class="reportTable">
+              <thead><tr><th>Time</th><th>Soil%</th><th>ET0</th><th>ETc</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="reportFooter">
+        <div>Generated in-browser. Soil moisture from Open-Meteo is modelled (unless manual input is used).</div>
+      </div>
+    </section>
+
   </main>
 
   <script src="app.js"></script>
