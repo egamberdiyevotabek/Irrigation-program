@@ -639,7 +639,6 @@ function fillPdfReportDom() {
 }
 
 async function downloadPdf() {
-  // Fix: html2pdf sometimes not loaded due to CDN/network. Check first.
   if (typeof window.html2pdf === "undefined") {
     setStatus("PDF xatosi: html2pdf kutubxonasi yuklanmadi. Sahifani yangilang yoki internetni tekshiring.");
     return;
@@ -650,9 +649,11 @@ async function downloadPdf() {
   const node = $("reportPdf");
   node.classList.remove("hidden");
 
+  const filename = `Sugorish_Hisoboti_${new Date().toISOString().slice(0,10)}.pdf`;
+
   const opt = {
     margin: 10,
-    filename: `Sugorish_Hisoboti_${new Date().toISOString().slice(0,10)}.pdf`,
+    filename,
     image: { type: "jpeg", quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
@@ -660,8 +661,39 @@ async function downloadPdf() {
 
   try {
     setStatus("PDF tayyorlanmoqda...");
-    await window.html2pdf().set(opt).from(node).save();
-    setStatus("");
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Mobile-friendly: generate blob and open in new tab
+      const worker = window.html2pdf().set(opt).from(node);
+      const pdf = await worker.outputPdf("blob");
+
+      const url = URL.createObjectURL(pdf);
+      const w = window.open(url, "_blank");
+
+      if (!w) {
+        // If popup blocked, show a fallback link
+        setStatus("PDF ochilmadi (popup blok). Pastdagi havolani bosing.");
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.textContent = "PDF ni ochish";
+        link.style.display = "inline-block";
+        link.style.marginTop = "10px";
+        $("reportPreview").appendChild(document.createElement("br"));
+        $("reportPreview").appendChild(link);
+      } else {
+        setStatus("PDF yangi oynada ochildi. Saqlash/ulashish tugmasidan foydalaning.");
+      }
+
+      // Don't revoke immediately; mobile needs time to load it
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } else {
+      // Desktop: direct download
+      await window.html2pdf().set(opt).from(node).save();
+      setStatus("");
+    }
   } catch (e) {
     setStatus(`PDF xato: ${e.message}`);
   } finally {
